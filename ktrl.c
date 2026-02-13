@@ -10,8 +10,10 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <sys/mman.h>
+
 #include "include/shtex.h"
 #include "include/keys.h"
+#include "include/moda.c"
 
 typedef char bool;
 #define true 1
@@ -24,11 +26,6 @@ union cin
   unsigned char u[sizeof(int)];
   char c[sizeof(int)];
   };
-struct position
-  {
-  int x;
-  int y;
-  };
 struct s256
   {
   char c[256];
@@ -36,7 +33,6 @@ struct s256
 
 union cin c;//note: c stands for character, cin is "character input"
 struct tex* shtex;
-struct position spos;//screen pos, position on the screen
 struct winsize ws;
 struct termios prevstate;
 struct sigaction act;
@@ -47,6 +43,7 @@ char command[512];
 char status[512];
 char self[258];
 char bar[256] = BAR;
+void (*move)(int);
 
 
 //utility declarations
@@ -71,11 +68,18 @@ void prepare_terminal()
   printf("%c]0;%s%c", '\033', "texd", '\007');//sets window title to texd
   }
 
-//func declarations
-void move(int x)
+//moda
+void bound_move(int ox)
+  {
+  size_t nx = shtex->cur + ox;
+  size_t len = strnlen(shtex->data, shtex->size);
+  if (nx <= len) shtex->cur += ox;
+  }
+
+void raw_move(int x)
   {
   shtex->cur += x;
-  shtex->cur = shtex->cur%shtex->size;
+  shtex->cur %= shtex->size;
   }
 
 int detach(size_t x)
@@ -184,25 +188,14 @@ void draweditedbar()
   printf("status: %s ", status);
   }
 
+
+//main flow declarations
 void drawbar()
   {
+  printf("\e[2J");
   printf("\e[%d;1H", ws.ws_col);//move to lowest row
   printf(bar, bufname, shtex->cur, shtex->data[shtex->cur], shtex->size);//print bar and go back
   printf("status: %s ", status);
-  }
-
-
-//main flow declarations
-void draw()
-  {//UI / printing function
-  printf("\e[40m\e[39m \e[2J");//set color to normal and clear screen
-  printf("\e[1;1H");//go back to beginning of screen
-  printf("%.*s", (int)(shtex->cur%INT_MAX), shtex->data);
-  printf("\e[30m\e[46m%c", shtex->data[shtex->cur]);//white bg, black fg / cursor colours
-  printf("\e[40m\e[39m");//set color to normal
-  printf("%.*s", (int)((shtex->size - shtex->cur)%INT_MAX), shtex->data+shtex->cur+1);
-  drawbar();
-  //fflush(stdout);
   }
 
 
@@ -223,6 +216,8 @@ void init(char** argv)
   strcpy(bufname, argv[1]);
   //strcpy(bar, BAR);//TODO: add error handling...
 
+  move = bound_move;
+
   if (!(shtex = shtex_create(bufname, 256*256)))
     exit(1);
   }
@@ -240,7 +235,7 @@ void edit_bar()
 edit_bar:
   strcpy(bar, newbar->data);
   //shtex = prevshtex;
-  draw();
+  drawbar();
   c.i = 0;
   clen = read(STDIN_FILENO, c.u, 4);
   if (iscntrl(c.c[0]))
@@ -304,6 +299,9 @@ void ktrl()
     case ctrl_b:
       edit_bar();
       break;
+    case enter:
+      insert("\n", 1);
+      break;
     default://this code runs when the key combination is undefined
       printf("\e[30m\e[41m");//red bg, black fg
       printf("hex: %02x%02x%02x%02x length: %d int: %d ", c.u[0], c.u[1], c.u[2], c.u[3], clen, c.i);
@@ -331,7 +329,7 @@ int main(int argc, char* argv[argc+1])
   init(argv);
   while (!done)
     {
-    draw();
+    drawbar();
     ktrl();
     }
   drop();
