@@ -61,8 +61,7 @@ struct tex* shtex_create(char name[256], size_t size)
     return ret;
     }
   //IMPORTANT WARNING: do not set any of the values if it already exists, as they're already set
-  //ret->size = length;
-  //ret->cur = 0;
+  if (ret->size < ret->cur) ret->cur = 0;
   //ret->data[ret->cur] = 0;
   return ret;
   }
