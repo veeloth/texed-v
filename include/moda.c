@@ -28,10 +28,10 @@ int detach(size_t x)
   return 0;
   }
 
-int attach(size_t x)
+int attach(ptrdiff_t x)
   {//shifts everything after cur by x bytes
-  char* pos = buf+cur-x;//where we "are";
-  if (pos < buf) return sprintf(msg, "already at beginning"), 1;//return if there's no room
+  char* pos = buf+cur+(x<0 ? -(x=-x) : 0);//where we "are";
+  if (pos < buf || !*pos) return sprintf(msg, "nothing to delete"), 1;//return if there's no room
   do pos[0] = pos[x]; while (pos++[x]);
   return 0;
   }
@@ -47,16 +47,23 @@ size_t where(char* word)
   }
 
 size_t last_word()
-  {
+  {//returns index of last word's first character
   size_t pos = cur;
   while (!isalnum(buf[pos]) && pos>0) --pos;
   while (isalnum(buf[pos]) && pos>0) --pos;
   return pos;
   }
 
+size_t next_word()
+  {//returns index of next word's last character
+  size_t pos = cur;
+  while (!isalnum(buf[pos]) && buf[pos]) ++pos;
+  while (isalnum(buf[pos]) && buf[pos]) ++pos;
+  return pos;
+  }
 
-int delete(size_t size)
-{ return attach(size) ? 1 : (move(-size), 0); }
+int delete(ptrdiff_t size)
+{ return attach(-size) ? 1 : (move(size>0?-size:0), 0); }
 
 
 int insert(char* src, size_t size)

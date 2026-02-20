@@ -62,14 +62,26 @@ void ktrl(unsigned char length, unsigned char input_arr[static 4])
       case backspace:
         delete(1);
         break;
+      case supr:
+        delete(-1);
+        break;
       case 15:
         go(where("tengo"));
         break;
       case ctrl_f:
         search();
         break;
+      case ctrl_l:
+        buf[cur] = 0;
+        break;
       case ctrl_w:
         delete(cur - last_word());
+        break;
+      case ctrl_e:
+        delete(cur - next_word());
+        break;
+      case 11:
+        insert("\e", 1);
         break;
       case enter:
         insert("\n", 1);
